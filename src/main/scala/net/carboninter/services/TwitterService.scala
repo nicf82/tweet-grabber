@@ -1,11 +1,11 @@
-package net.carboninter
+package net.carboninter.services
 
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
-import play.api.libs.json.{JsObject, JsValue, Json}
+import play.api.libs.json.{JsObject, JsValue}
 import play.api.libs.oauth.{ConsumerKey, OAuthCalculator, RequestToken}
-import play.api.libs.ws.ahc.StandaloneAhcWSClient
 import play.api.libs.ws.JsonBodyReadables._
+import play.api.libs.ws.ahc.StandaloneAhcWSClient
 
 class TwitterService(config: Config)(implicit actorSystem: ActorSystem) {
 
@@ -23,7 +23,7 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) {
 
   def getTweet(id: String) = {
     wsClient
-      .url("https://api.twitter.com/1.1/statuses/show.json?id=1282680856289697794")
+      .url(s"https://api.twitter.com/1.1/statuses/show.json?id=$id")
       .sign(OAuthCalculator(consumerKey, requestToken))
       .get()
       .map { response =>
