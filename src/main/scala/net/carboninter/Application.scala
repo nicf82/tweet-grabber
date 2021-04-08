@@ -4,11 +4,13 @@ import akka.actor.ActorSystem
 import akka.stream.SystemMaterializer
 import akka.stream.scaladsl.Sink
 import com.typesafe.config.{Config, ConfigFactory}
-import net.carboninter.repos.TweetRepo
-import net.carboninter.services.TwitterService
+import net.carboninter.connectors.TwitterConnector
+import net.carboninter.repos.{EntryRepo, TweetRepo, TweetStubRepo}
+import net.carboninter.services.TweetProcessingService
 import net.carboninter.util.Logging
-import play.api.libs.json.{JsDefined, JsObject, JsUndefined}
 import reactivemongo.api.AsyncDriver
+
+import java.time.OffsetDateTime
 
 //See https://doc.akka.io/docs/alpakka/1.1.2/examples/mqtt-samples.html
 
@@ -18,63 +20,55 @@ object Application extends App with Logging {
   val driver = new AsyncDriver()
 
   // Create Akka system for thread and streaming management
-  implicit val system = ActorSystem()
-  import system.dispatcher
+  implicit val actorSystem = ActorSystem()
+  import actorSystem.dispatcher
+  implicit val materializer = SystemMaterializer(actorSystem).materializer
 
-  system.registerOnTermination {
+  actorSystem.registerOnTermination {
     System.exit(0)
   }
 
-  implicit val materializer = SystemMaterializer(system).materializer
+  val connector = new TwitterConnector(config)
 
-  val service = new TwitterService(config)
-
-  val repo = new TweetRepo(driver, config)
-
-
-  //Checking how many retweets there are
-  //  db.getCollection('tweets').aggregate([
-  //  {'$group': {
-  //    '_id':{'$gt':["$retweeted_status", null]},
-  //    'count': {'$sum': 1}
-  //  }}
-  //  ])
-
-  //A tweet with 6 retweets
-  //  db.getCollection('tweets').find({'retweeted_status.id_str': '1201124908979359744'})
+  val tweetRepo = new TweetRepo(driver, config)
+  val tweetStubRepo = new TweetStubRepo(driver, config)
+  val entryRepo = new EntryRepo(driver, config)
 
 
-  //This is the timestamp 1 week before the last tweet which is a retweet, so
-  // we should cover all retweets when analysing their source tweets
-  val startAt = "1594045933685"
+  val service = new TweetProcessingService(config, tweetRepo, entryRepo, tweetStubRepo)
 
-  val currentBatchIdent = 3
+  service.tempSingleTweetSource.via(service.tweetProcessingFlow).runWith(Sink.ignore)
 
-  repo.count(currentBatchIdent) map { count =>
-    println("Tweets to process: " + count)
-  }
+//  entryRepo.getEntries(OffsetDateTime.parse("2021-04-01T11:17:49.715Z"), OffsetDateTime.parse("2021-04-03T15:46:00.001Z")) map { entries =>
+//
+//    for(entry <- entries) {
+//      println(entry)
+//    }
+//    println(entries.length)
+//
+//  } recover {
+//    case e: Throwable =>
+//      logger.error("Error", e)
+//  }
+
+//  entryRepo.getEntriesSurroundingTweetTime(OffsetDateTime.parse("1970-01-01T00:00:00.000Z")) map { entries =>  //Gives results, fix!
+//  entryRepo.getEntriesSurroundingTweetTime(OffsetDateTime.parse("2020-07-16T12:59:43.137Z")) map { entries =>
+//    for(entry <- entries) {
+//      println(entry)
+//    }
+//    println(entries.length)
+//
+//    entries.head.validate[LiveEvent] match {
+//      case JsSuccess(value, path) =>
+//        println(value)
+//      case JsError(errors) =>
+//        println(errors)
+//    }
+//  }
 
 
-  val result = repo.tweetsSource(currentBatchIdent)
-    .drop(20000)
-    .take(10)
-    .mapConcat { originalJson =>
 
-      val retweeting = (originalJson \ "retweeted_status").toOption.toList.flatMap {
-        case innerJson: JsObject =>
-          logger.debug("Found a retweet! Original: " + originalJson)
-          List(innerJson)
-      }
 
-      val quoting = (originalJson \ "quoted_status").toOption.toList.flatMap {
-        case innerJson: JsObject =>
-          logger.debug("Found a quoted tweet! Original: " + originalJson)
-          List(originalJson, innerJson)
-      }
 
-      retweeting ++ quoting
-    }
-    .to(Sink.foreach(x => println(x)))
-    .run
 
 }

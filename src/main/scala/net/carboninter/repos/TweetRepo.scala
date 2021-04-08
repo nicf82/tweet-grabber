@@ -62,6 +62,8 @@ class TweetRepo(driver: AsyncDriver, config: Config) extends MongoFormats with L
       "batchIdent" -> BSONDocument("$lt" -> currentBatchIdent)
     )
 
+    println(query.asTry[JsObject])
+
     val sortBy = BSONDocument("timestamp_ms" -> 1)
 
     Source.futureSource {
