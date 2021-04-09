@@ -7,7 +7,7 @@ import com.typesafe.config.Config
 import net.carboninter.util.Logging
 import play.api.libs.json.{JsObject, Json}
 import reactivemongo.akkastream.{AkkaStreamCursor, cursorProducer}
-import _root_.reactivemongo.api.bson.{BSONDocument, _}
+import reactivemongo.api.bson.{BSONDocument, _}
 import reactivemongo.api.bson.collection._
 import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}

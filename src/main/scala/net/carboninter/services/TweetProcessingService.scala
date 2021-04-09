@@ -42,13 +42,16 @@ class TweetProcessingService(
       val minFirstAppearance = tweetTime
       val maxMarketStartTime = tweetTime.minusHours(24)
 
-
-      val future = entryRepo.getEntries(minFirstAppearance, maxMarketStartTime).map(_.zip(LazyList.continually((id, json, tweetTime))))
-      Source.futureSource(future.map(Source.apply))
+      entryRepo.getEntriesStream(minFirstAppearance, maxMarketStartTime).map { entry =>
+        (entry, id, json, tweetTime)
+      }
     }
     .map {
-      case (Success(entry), (id, json, tweetTime)) =>
-        logger.info(s"Found entry: ${entry.firstAppearance} - ${entry.marketStartTime} live at time of tweet $tweetTime, info: ${entry._id}")
+      case (Success(entry), id, json, tweetTime) =>
+        if(tweetTime.isBefore(entry.marketStartTime))
+          logger.info(s"Found entry: firstAppearance: ${entry.firstAppearance} - start: ${entry.marketStartTime} - cutoff: ${entry.marketStartTime.plusHours(24)} live at time of tweet $tweetTime, info: ${entry._id}")
+        else
+          logger.debug(s"Found entry: firstAppearance: ${entry.firstAppearance} - start: ${entry.marketStartTime} - cutoff: ${entry.marketStartTime.plusHours(24)} live at time of tweet $tweetTime, info: ${entry._id}")
     }
 
 

@@ -37,7 +37,12 @@ object Application extends App with Logging {
 
   val service = new TweetProcessingService(config, tweetRepo, entryRepo, tweetStubRepo)
 
-  service.tempSingleTweetSource.via(service.tweetProcessingFlow).runWith(Sink.ignore)
+  val r = service.tempSingleTweetSource.via(service.tweetProcessingFlow).runWith(Sink.fold(0) { case (acc, e) => acc+1 })
+
+  r map { i =>
+    logger.info(s"${i} messages processed")
+    actorSystem.terminate()
+  }
 
 //  entryRepo.getEntries(OffsetDateTime.parse("2021-04-01T11:17:49.715Z"), OffsetDateTime.parse("2021-04-03T15:46:00.001Z")) map { entries =>
 //
