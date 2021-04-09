@@ -31,21 +31,12 @@ import scala.concurrent.Future
 
 
 
-class EntryRepo(driver: AsyncDriver, config: Config) extends MongoFormats with Logging {
-
-  lazy val connection = driver.connect(config.getString("database.url"))
+class EntryRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
 
   val collectionName = "entries"
 
-  lazy val db = for {
-    conn <- connection
-    db <- conn.database(config.getString("database.name"))
-  } yield db
-
-
-
   lazy val entriesCollection = for {
-    db <- db
+    db <- dbProvider.db
     collection = db.collection[BSONCollection](collectionName)
     _ = collection.indexesManager.ensure(Index(Seq("firstAppearance" -> IndexType.Ascending, "marketStartTime" -> IndexType.Ascending)))
     _ = collection.indexesManager.ensure(Index(Seq("track" -> IndexType.Ascending, "name" -> IndexType.Ascending, "date" -> IndexType.Ascending, "time24" -> IndexType.Ascending)))
@@ -84,6 +75,17 @@ class EntryRepo(driver: AsyncDriver, config: Config) extends MongoFormats with L
         cursor.documentSource().mapMaterializedValue(_ => NotUsed).map(_.asTry[Entry])
       }
     }
+  }
+
+  def attachTweet(id: String, tweetId: String): Future[WriteResult] = {
+
+    val query = BSONDocument("_id" -> id)
+    val update = BSONDocument("$addToSet" -> BSONDocument("tweets" -> tweetId))
+
+    for {
+      coll <- entriesCollection
+      updateWriteResult <- coll.update.one(query, update, upsert = false, multi = false)
+    } yield updateWriteResult
   }
 
 }

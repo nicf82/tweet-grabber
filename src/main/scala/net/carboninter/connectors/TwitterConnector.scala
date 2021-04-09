@@ -1,11 +1,15 @@
 package net.carboninter.connectors
 
+import akka.NotUsed
 import akka.actor.ActorSystem
+import akka.stream.scaladsl.Source
 import com.typesafe.config.Config
-import play.api.libs.json.{JsObject, JsValue}
+import play.api.libs.json.{JsArray, JsObject, JsValue}
 import play.api.libs.oauth.{ConsumerKey, OAuthCalculator, RequestToken}
 import play.api.libs.ws.JsonBodyReadables._
 import play.api.libs.ws.ahc.StandaloneAhcWSClient
+
+import scala.concurrent.Future
 
 class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) {
 
@@ -21,7 +25,7 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) {
   val consumerKey = ConsumerKey(apiKey, apiSecret)
   val requestToken = RequestToken(token, tokenSecret)
 
-  def getTweet(id: String) = {
+  def getTweet(id: String): Future[JsObject] = {
     wsClient
       .url(s"https://api.twitter.com/1.1/statuses/show.json?id=$id")
       .sign(OAuthCalculator(consumerKey, requestToken))
@@ -31,35 +35,16 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) {
       }
   }
 
-  //
-  //
-  //  //This is the timestamp 1 week before the last tweet which is a retweet, so
-  //  // we should cover all retweets when analysing their source tweets
-  //  val startAt = "1594045933685"
-  //
-  //  val currentBatchIdent = 3
-  //
-  //  tweetRepo.count(currentBatchIdent) map { count =>
-  //    println("Tweets to process: " + count)
-  //  }
-  //
+  def getRetweets(id: String): Future[collection.IndexedSeq[JsObject]] = {
+    wsClient
+      .url(s"https://api.twitter.com/1.1/statuses/retweets/$id.json")
+      .sign(OAuthCalculator(consumerKey, requestToken))
+      .get()
+      .map { response =>
+        response.body[JsValue].as[JsArray].value.map(_.as[JsObject])
+      }
+  }
 
-  //
-  //
-  //
-  //  val result = tweetRepo.tweetsSource(currentBatchIdent)
-  //    .drop(100000)
-  //    .take(1000)
-  //    .via(Flows.dissectTweetFlow)
-  //    .toMat(Sink.fold((0,0,0,0)) { case ((r, q, b, t), dissectedTweet) =>
-  //      val r1 = r + (if(dissectedTweet.retweetsAnotherTweet) 1 else 0)
-  //      val q1 = q + (if(dissectedTweet.quotesAnotherTweet) 1 else 0)
-  //      val b1 = b + (if(dissectedTweet.quotesAnotherTweet && dissectedTweet.retweetsAnotherTweet) 1 else 0)
-  //
-  //      (r1, q1, b1, t+1)
-  //    })(Keep.right)
-  //    .run
-  //    .map { case (r, q, b, t) =>
-  //      println(s"Total: $t, retweets: $r, quoted: $q, both: $b")
-  //    }
+  def getRetweetsSource(id: String): Source[JsObject, Future[NotUsed]] =
+    Source.futureSource(getRetweets(id).map(x => Source( x.toSeq)))
 }

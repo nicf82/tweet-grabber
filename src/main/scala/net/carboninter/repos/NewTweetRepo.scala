@@ -4,45 +4,48 @@ import _root_.reactivemongo.api.bson.{BSONDocument, _}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.typesafe.config.Config
-import net.carboninter.models.StubTweet
 import net.carboninter.util.Logging
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.JsObject
 import reactivemongo.akkastream.{AkkaStreamCursor, cursorProducer}
+import reactivemongo.api.WriteConcern
 import reactivemongo.api.bson.collection._
-import reactivemongo.api.collections.GenericCollection
 import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
-import reactivemongo.api.{AsyncDriver, CollectionMetaCommands, WriteConcern}
+import reactivemongo.play.json.compat._
 import reactivemongo.play.json.compat.bson2json._
 import reactivemongo.play.json.compat.json2bson._
+import reactivemongo.play.json.compat.lax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class TweetStubRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
 
-  lazy val collection = for {
+class NewTweetRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
+
+  lazy val tweetsCollection = for {
     db <- dbProvider.db
-    collection = db.collection[BSONCollection]("tweet_stubs")
+    collection = db.collection[BSONCollection]("new_tweets")
+    _ = collection.indexesManager.ensure(Index(Seq("timestamp_ms" -> IndexType.Ascending)))
   } yield collection
-
 
   def count(): Future[Long] = {
 
-    collection.flatMap { coll =>
-      coll.count()
+    val query = BSONDocument()
+
+    tweetsCollection.flatMap { coll =>
+      coll.count(Some(query))
     }
   }
 
-  def tweetStubsSource()(implicit m: Materializer): Source[JsObject, Future[NotUsed]] = {
+  def tweetsSource()(implicit m: Materializer): Source[JsObject, Future[NotUsed]] = {
 
     val query = BSONDocument()
+    val sortBy = BSONDocument("timestamp_ms" -> 1)
 
     Source.futureSource {
-      collection.map { coll =>
+      tweetsCollection.map { coll =>
         val cursor: AkkaStreamCursor.WithOps[JsObject] = coll
-          .find(query)
+          .find(query).sort(sortBy)
           .cursor[JsObject]()
 
         cursor.documentSource().mapMaterializedValue(_ => NotUsed)
@@ -50,14 +53,13 @@ class TweetStubRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
     }
   }
 
-  def store(stubTweet: StubTweet): Future[WriteResult] = {
+  def store(id: String, json: JsObject): Future[WriteResult] = {
 
-    val query = BSONDocument("_id" -> stubTweet.id_str)
-    val update = BSONDocument("text" -> stubTweet.text, "timestamp" -> stubTweet.time)
+    val query = BSONDocument("_id" -> id)
 
     for {
-      coll <- collection
-      updateWriteResult <- coll.update.one(query, update, upsert = true, multi = false)
+      coll <- tweetsCollection
+      updateWriteResult <- coll.update.one(query, json, upsert = true, multi = false)
     } yield updateWriteResult
   }
 }

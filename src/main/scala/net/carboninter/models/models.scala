@@ -42,7 +42,6 @@ case class LiveEvent(track: String, marketFirstAppearance: OffsetDateTime, marke
 object LiveEvent {
 
   import play.api.libs.json._
-
   import play.api.libs.functional.syntax._
 
   implicit val offsetDateTimeRead: Reads[OffsetDateTime] =

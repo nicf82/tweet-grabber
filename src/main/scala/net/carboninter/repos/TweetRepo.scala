@@ -1,35 +1,30 @@
 package net.carboninter.repos
 
+import _root_.reactivemongo.api.bson.{BSONDocument, _}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.typesafe.config.Config
 import net.carboninter.util.Logging
 import play.api.libs.json.{JsObject, Json}
 import reactivemongo.akkastream.{AkkaStreamCursor, cursorProducer}
-import reactivemongo.api.bson.{BSONDocument, _}
+import reactivemongo.api.{Cursor, WriteConcern}
 import reactivemongo.api.bson.collection._
 import reactivemongo.api.commands.WriteResult
 import reactivemongo.api.indexes.{Index, IndexType}
-import reactivemongo.api.{AsyncDriver, WriteConcern}
+import reactivemongo.play.json.compat._
+import reactivemongo.play.json.compat.bson2json._
 import reactivemongo.play.json.compat.json2bson._
+import reactivemongo.play.json.compat.lax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-import reactivemongo.play.json.compat.bson2json._
 
-class TweetRepo(driver: AsyncDriver, config: Config) extends MongoFormats with Logging {
 
-  lazy val connection = driver.connect(config.getString("database.url"))
-
-  lazy val db = for {
-    conn <- connection
-    db <- conn.database(config.getString("database.name"))
-  } yield db
+class TweetRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
 
   lazy val tweetsCollection = for {
-    db <- db
+    db <- dbProvider.db
     collection = db.collection[BSONCollection]("tweets")
     _ = collection.indexesManager.ensure(Index(Seq("timestamp_ms" -> IndexType.Ascending)))
     _ = collection.indexesManager.ensure(Index(Seq("batchIdent" -> IndexType.Ascending)))
@@ -107,5 +102,28 @@ class TweetRepo(driver: AsyncDriver, config: Config) extends MongoFormats with L
         cursor.documentSource().mapMaterializedValue(_ => NotUsed)
       }
     }
+  }
+
+  def get(id: String) = {
+
+    val query = BSONDocument("_id" -> id)
+
+    tweetsCollection.flatMap { coll =>
+      val cursor: Cursor.WithOps[JsObject] = coll
+        .find(query).sort(BSONDocument("marketStartTime" -> 1))
+        .cursor[JsObject]()
+      cursor.collect[List](1, Cursor.FailOnError()).map(_.headOption)
+    }
+
+  }
+
+  def store(id: String, json: JsObject): Future[WriteResult] = {
+
+    val query = BSONDocument("_id" -> id)
+
+    for {
+      coll <- tweetsCollection
+      updateWriteResult <- coll.update.one(query, json, upsert = true, multi = false)
+    } yield updateWriteResult
   }
 }
