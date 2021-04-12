@@ -72,14 +72,14 @@ class EntryRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
         val cursor: AkkaStreamCursor.WithOps[BSONDocument] = coll
           .find(query).sort(BSONDocument("marketStartTime" -> 1))
           .cursor[BSONDocument]()
-        cursor.documentSource().mapMaterializedValue(_ => NotUsed).map(_.asTry[Entry])
+        cursor.documentSource().mapMaterializedValue[NotUsed](_ => NotUsed).map(_.asTry[Entry])
       }
     }
   }
 
-  def attachTweet(id: String, tweetId: String): Future[WriteResult] = {
+  def attachTweet(entryId: String, tweetId: String): Future[WriteResult] = {
 
-    val query = BSONDocument("_id" -> id)
+    val query = BSONDocument("_id" -> entryId)
     val update = BSONDocument("$addToSet" -> BSONDocument("tweets" -> tweetId))
 
     for {

@@ -18,7 +18,7 @@ object StubTweet {
   implicit val reads: Reads[StubTweet] =
     (
       (__ \ "id_str").read[String] and
-      (__ \ "extended_tweet" \ "text").read[String].orElse((__ \ "text").read[String]) and
+      (__ \ "extended_tweet" \ "full_text").read[String].orElse((__ \ "text").read[String]) and
       (__ \ "timestamp_ms").read[String].map(ms => Instant.ofEpochMilli(ms.toLong).atOffset(ZoneOffset.UTC))
     )(StubTweet.apply _)
 

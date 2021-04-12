@@ -1,5 +1,6 @@
 package net.carboninter.services
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -20,8 +21,8 @@ class TweetProcessingService(
   tweetStubRepo: TweetStubRepo
 )(implicit actorSystem: ActorSystem, executionContext: ExecutionContext, materializer: Materializer) extends Logging {
 
-  val tempSingleTweetSource1 = Source.futureSource(tweetRepo.get("1195770077150363649").map(t => Source.single(t.get)))
-  val tempSingleTweetSource2 = Source.futureSource(tweetRepo.get("1195704270743654400").map(t => Source.single(t.get)))
+  lazy val tempSingleTweetSource1 = Source.futureSource(tweetRepo.get("1195770077150363649").map(t => Source.single(t.get)))
+  lazy val tempSingleTweetSource2 = Source.futureSource(tweetRepo.get("1195704270743654400").map(t => Source.single(t.get)))
 
   val standardIncomingTweetFlow = Flow[JsObject].mapConcat { jsTweet =>
       logger.trace("Incoming tweet: " + jsTweet)
@@ -71,7 +72,7 @@ class TweetProcessingService(
         else None
 
       case (Failure(e), stubTweet, jsTweet) =>
-        logger.error(s"Failed to parse entry! Tweet ${stubTweet.id_str} MAY not have been assigned to an entry in error. The tweet will be stored with entryError flag set, for reprocessing and possible removal.", e)
+        logger.error(s"Failed to parse entry! Tweet ${stubTweet.id_str} MAY NOT have been assigned to an entry it should have been. The tweet stub's entryErrors will be incremented, for reprocessing", e)
         Metrics.entryParseFailureCounter.inc()
         Some( (None, stubTweet, jsTweet) )
     }
@@ -83,9 +84,8 @@ class TweetProcessingService(
         case (entry, stubTweet, jsTweet) if stubTweet.id_str != lastTweetId =>
           lastTweetId = stubTweet.id_str
 
-          val js = if(!entry.isDefined) jsTweet else jsTweet ++ Json.obj("entryError" -> true)
-          val r = newTweetRepo.store(stubTweet.id_str, js) map { wr =>
-            logger.debug(s"${wr.n} full tweet records stored for ${stubTweet.id_str}, entryError = ${!entry.isDefined}")
+          val r = newTweetRepo.store(stubTweet.id_str, jsTweet) map { wr =>
+            logger.debug(s"${wr.n} full tweet records stored for ${stubTweet.id_str}")
             Metrics.storedFullTweetsCounter.inc()
             (entry, stubTweet)
           }
@@ -96,8 +96,13 @@ class TweetProcessingService(
       }
     }
     .mapAsync(1)(identity)
-    .mapConcat { case (entry, stubTweet) =>
-      entry.map(e => (e, stubTweet))
+    .mapConcat {
+      case (Some(entry), stubTweet) =>
+        Some((entry, stubTweet))
+      case (None, stubTweet) =>
+        logger.debug(s"Incrementing entryErrors on tweet stub ${stubTweet.id_str}")
+        tweetStubRepo.incEntryErrors(stubTweet.id_str)
+        None
     }
     .mapAsync(4) { case (entry, stubTweet) =>
       entryRepo.attachTweet(entry._id, stubTweet.id_str).map(wr => (wr, entry, stubTweet))

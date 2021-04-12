@@ -30,6 +30,7 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.4.1",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
 
-  "org.scalatest" %% "scalatest" % "3.2.6" % "test"
+  "org.scalatest" %% "scalatest" % "3.2.7" % "test",
+  "org.scalatestplus" %% "mockito-3-4" % "3.2.7.0" % "test"
 )
 

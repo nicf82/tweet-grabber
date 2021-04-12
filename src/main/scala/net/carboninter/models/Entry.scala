@@ -1,11 +1,13 @@
 package net.carboninter.models
 
+import play.api.libs.json.{JsObject, JsResult, JsValue, Json, Reads}
 import reactivemongo.api.bson.{BSONDocument, BSONDocumentReader, Macros}
 
 import java.time.OffsetDateTime
 
 case class Markers(batch: String)
 object Markers {
+  implicit val format = Json.format[Markers]
   implicit val handler = Macros.handler[Markers]
 }
 
@@ -36,6 +38,46 @@ case class Entry(
 )
 
 object Entry {
+
+  import play.api.libs.json._
+  import play.api.libs.functional.syntax._
+
+  implicit val largeCaseClassReads: Reads[Entry] = {
+
+    val r1 = {
+      (__ \ "_id").read[String] and
+      (__ \ "age").readNullable[Int] and
+      (__ \ "country").read[String] and
+      (__ \ "createdAt").read[OffsetDateTime] and
+      (__ \ "date").read[String] and
+      (__ \ "firstAppearance").read[OffsetDateTime] and
+      (__ \ "jockey").readNullable[String] and
+      (__ \ "marketStartTime").read[OffsetDateTime] and
+      (__ \ "name").read[String] and
+      (__ \ "runners").read[Int] and
+      (__ \ "time24").read[String] and
+      (__ \ "track").read[String]
+    }.tupled
+
+    val r2 = {
+      (__ \ "trainer").readNullable[String] and
+      (__ \ "updatedAt").read[OffsetDateTime] and
+      (__ \ "markers").readNullable[Markers] and
+      (__ \ "tweets").readNullable[List[String]] and
+      (__ \ "bfSp").readNullable[String] and
+      (__ \ "bfWinReturn").readNullable[String] and
+      (__ \ "ewReturn").readNullable[String] and
+      (__ \ "indSp").readNullable[String] and
+      (__ \ "place").readNullable[String] and
+      (__ \ "spWinReturn").readNullable[String] and
+      (__ \ "winningDist").readNullable[String]
+    }.tupled
+
+    (r1 and r2).tupled.map {
+      case ((a, b, c, d, e, f, g, h, i, j, k, l), (m, n, o, p, q, r, s, t, u, v, w)) =>
+        Entry(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w)
+    }
+  }
 
   //This is the reader, as we have more than 22 fields macros, along with apply/unapplys dont work :|
   implicit object EntryReader extends BSONDocumentReader[Entry] {

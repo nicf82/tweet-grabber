@@ -1,7 +1,7 @@
 package net.carboninter
 
 import akka.actor.ActorSystem
-import akka.stream.SystemMaterializer
+import akka.stream.{ActorAttributes, Supervision, SystemMaterializer}
 import akka.stream.scaladsl.Sink
 import com.typesafe.config.{Config, ConfigFactory}
 import net.carboninter.connectors.TwitterConnector
@@ -26,6 +26,11 @@ object Application extends App with Logging {
     System.exit(0)
   }
 
+  val logAndStopDecider: Supervision.Decider = { e =>
+    logger.error("Unhandled exception in stream", e)
+    Supervision.Stop
+  }
+
   val connector = new TwitterConnector(config)
 
   val dbProvider = new DbProvider(driver, config)
@@ -37,7 +42,10 @@ object Application extends App with Logging {
 
   val service = new TweetProcessingService(tweetRepo, newTweetRepo, entryRepo, tweetStubRepo)
 
-  val r = service.tempSingleTweetSource2.via(service.standardIncomingTweetFlow).runWith(Sink.fold(0) { case (acc, _) => acc+1 })
+  val r = service.tempSingleTweetSource1
+    .via(service.standardIncomingTweetFlow)
+    .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
+    .runWith(Sink.fold(0) { case (acc, _) => acc+1 })
 
   r map { i =>
     logger.info(s"${i} messages processed")

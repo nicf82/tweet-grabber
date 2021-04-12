@@ -1,0 +1,35 @@
+{
+  "_id" : "2019-11-16_18:15_gb_wolverhampton_moment of silence",
+  "age" : 3,
+  "country" : "gb",
+  "createdAt" : "2020-07-12T13:31:56.014Z",
+  "date" : "2019-11-16",
+  "firstAppearance" : "2019-11-16T04:41:17.934Z",
+  "jockey" : "gabriele malune",
+  "marketStartTime" : "2019-11-16T18:15:00.000Z",
+  "name" : "moment of silence",
+  "runners" : 6,
+  "time24" : "18:15",
+  "track" : "wolverhampton",
+  "trainer" : "saeed bin suroor",
+  "updatedAt" : "2021-03-25T22:04:35.603Z",
+  "markers" : {
+    "batch" : "2102A"
+  },
+  "bfSp" : "5.20",
+  "bfWinReturn" : "42.00",
+  "ewReturn" : "8.75",
+  "indSp" : "4.50",
+  "place" : "1",
+  "spWinReturn" : "35.00",
+  "winningDist" : "",
+  "tweets" : [
+    "1195768185510932480",
+    "1195768243945906177",
+    "1195768583223156737",
+    "1195768989676429312",
+    "1195769063978553344",
+    "1195770077150363649",
+    "1195770673597206534"
+  ]
+}

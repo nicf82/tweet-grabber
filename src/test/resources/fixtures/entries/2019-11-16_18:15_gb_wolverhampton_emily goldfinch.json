@@ -1,0 +1,37 @@
+{
+  "_id" : "2019-11-16_18:15_gb_wolverhampton_emily goldfinch",
+  "age" : 6,
+  "country" : "gb",
+  "createdAt" : "2020-07-12T13:31:56.014Z",
+  "date" : "2019-11-16",
+  "firstAppearance" : "2019-11-16T04:41:17.934Z",
+  "jockey" : "grace mcentee",
+  "marketStartTime" : "2019-11-16T18:15:00.000Z",
+  "name" : "emily goldfinch",
+  "runners" : 6,
+  "time24" : "18:15",
+  "track" : "wolverhampton",
+  "trainer" : "phil mcentee",
+  "updatedAt" : "2021-03-25T22:04:35.812Z",
+  "markers" : {
+    "batch" : "2102A"
+  },
+  "bfSp" : "57.91",
+  "bfWinReturn" : "-10.00",
+  "ewReturn" : "70.00",
+  "indSp" : "29.00",
+  "place" : "2",
+  "spWinReturn" : "-10.00",
+  "winningDist" : "1.5",
+  "tweets" : [
+    "1195761481209569281",
+    "1195766275739471872",
+    "1195768185510932480",
+    "1195768243945906177",
+    "1195768583223156737",
+    "1195769063978553344",
+    "1195769598475472896",
+    "1195770077150363649",
+    "1195770673597206534"
+  ]
+}

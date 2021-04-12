@@ -1,0 +1,127 @@
+{
+  "_id" : "1195704270743654400",
+  "contributors" : null,
+  "coordinates" : null,
+  "created_at" : "Sat Nov 16 14:04:47 +0000 2019",
+  "entities" : {
+    "hashtags" : [
+      {
+        "text" : "Cheltenham",
+        "indices" : [
+          6,
+          17
+        ]
+      }
+    ],
+    "urls" : [
+      {
+        "url" : "https://t.co/UCA2XMZxYI",
+        "expanded_url" : "https://twitter.com/i/web/status/1195704270743654400",
+        "display_url" : "twitter.com/i/web/status/1…",
+        "indices" : [
+          117,
+          140
+        ]
+      }
+    ],
+    "user_mentions" : [],
+    "symbols" : []
+  },
+  "extended_tweet" : {
+    "full_text" : "13:50 #Cheltenham result: 1. West Approach 11/4F (3l), 2. Achille 10/1, 3. Potters Legend 7/1, 4. Ramses De Teillee 11/4F https://t.co/JMJV7COHyI",
+    "display_text_range" : [
+      0,
+      145
+    ],
+    "entities" : {
+      "hashtags" : [
+        {
+          "text" : "Cheltenham",
+          "indices" : [
+            6,
+            17
+          ]
+        }
+      ],
+      "urls" : [
+        {
+          "url" : "https://t.co/JMJV7COHyI",
+          "expanded_url" : "http://spreadex.com?tid=4316",
+          "display_url" : "spreadex.com/?tid=4316",
+          "indices" : [
+            122,
+            145
+          ]
+        }
+      ],
+      "user_mentions" : [],
+      "symbols" : []
+    }
+  },
+  "favorite_count" : 0,
+  "favorited" : false,
+  "filter_level" : "low",
+  "geo" : null,
+  "id" : 1.19570427074365e+18,
+  "id_str" : "1195704270743654400",
+  "in_reply_to_screen_name" : null,
+  "in_reply_to_status_id" : null,
+  "in_reply_to_status_id_str" : null,
+  "in_reply_to_user_id" : null,
+  "in_reply_to_user_id_str" : null,
+  "is_quote_status" : false,
+  "lang" : "de",
+  "place" : null,
+  "possibly_sensitive" : false,
+  "quote_count" : 0,
+  "reply_count" : 0,
+  "retweet_count" : 0,
+  "retweeted" : false,
+  "source" : "<a href=\"http://www.spreadex.com\" rel=\"nofollow\">Spreadex_Racing</a>",
+  "text" : "13:50 #Cheltenham result: 1. West Approach 11/4F (3l), 2. Achille 10/1, 3. Potters Legend 7/1, 4. Ramses De Teillee… https://t.co/UCA2XMZxYI",
+  "timestamp_ms" : "1573913087913",
+  "truncated" : true,
+  "user" : {
+    "id" : 934627184,
+    "id_str" : "934627184",
+    "name" : "Horse Racing Alerts",
+    "screen_name" : "SpreadexRacing",
+    "location" : "St Albans",
+    "url" : "http://spreadex.com?tid=6823",
+    "description" : "Get all UK & Irish horse racing results in one feed, plus big betting price moves and more. Remember to enable mobile notifications. Losses may exceed deposit.",
+    "translator_type" : "none",
+    "protected" : false,
+    "verified" : false,
+    "followers_count" : 3518,
+    "friends_count" : 8,
+    "listed_count" : 78,
+    "favourites_count" : 37,
+    "statuses_count" : 174422,
+    "created_at" : "Thu Nov 08 14:26:20 +0000 2012",
+    "utc_offset" : null,
+    "time_zone" : null,
+    "geo_enabled" : false,
+    "lang" : null,
+    "contributors_enabled" : false,
+    "is_translator" : false,
+    "profile_background_color" : "C0DEED",
+    "profile_background_image_url" : "http://abs.twimg.com/images/themes/theme1/bg.png",
+    "profile_background_image_url_https" : "https://abs.twimg.com/images/themes/theme1/bg.png",
+    "profile_background_tile" : false,
+    "profile_link_color" : "0084B4",
+    "profile_sidebar_border_color" : "FFFFFF",
+    "profile_sidebar_fill_color" : "DDEEF6",
+    "profile_text_color" : "333333",
+    "profile_use_background_image" : true,
+    "profile_image_url" : "http://pbs.twimg.com/profile_images/1172063761148121088/jGBqOnP1_normal.jpg",
+    "profile_image_url_https" : "https://pbs.twimg.com/profile_images/1172063761148121088/jGBqOnP1_normal.jpg",
+    "profile_banner_url" : "https://pbs.twimg.com/profile_banners/934627184/1568276752",
+    "default_profile" : false,
+    "default_profile_image" : false,
+    "following" : null,
+    "follow_request_sent" : null,
+    "notifications" : null
+  },
+  "batchIdent" : 1,
+  "postStatus" : 200
+}

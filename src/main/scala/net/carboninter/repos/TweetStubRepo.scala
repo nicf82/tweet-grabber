@@ -60,4 +60,17 @@ class TweetStubRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
       updateWriteResult <- coll.update.one(query, update, upsert = true, multi = false)
     } yield updateWriteResult
   }
+
+
+
+  def incEntryErrors(tweetId: String): Future[WriteResult] = {
+
+    val query = BSONDocument("_id" -> tweetId)
+    val update = BSONDocument("$inc" -> BSONDocument("entryErrors" -> 1))
+
+    for {
+      coll <- collection
+      updateWriteResult <- coll.update.one(query, update, upsert = false, multi = false)
+    } yield updateWriteResult
+  }
 }

@@ -14,8 +14,6 @@ class TwitterConnectorSpec extends AnyWordSpecLike with TestActorSystem {
   val config: Config = ConfigFactory.load()
   val service = new TwitterConnector(config)
 
-  import system.dispatcher
-
   "Grabbing different retweets" should {
 
     val config: Config = ConfigFactory.load()

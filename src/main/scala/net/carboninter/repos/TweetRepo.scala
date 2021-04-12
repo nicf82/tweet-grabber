@@ -84,6 +84,22 @@ class TweetRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
     }
   }
 
+  def allTweetsSource()(implicit m: Materializer): Source[JsObject, Future[NotUsed]] = {
+
+    val query = BSONDocument()
+    val sortBy = BSONDocument("timestamp_ms" -> 1)
+
+    Source.futureSource {
+      tweetsCollection.map { coll =>
+        val cursor: AkkaStreamCursor.WithOps[JsObject] = coll
+          .find(query).sort(sortBy)
+          .cursor[JsObject]()
+
+        cursor.documentSource().mapMaterializedValue(_ => NotUsed)
+      }
+    }
+  }
+
   def tweetsSourceFromTime(currentBatchIdent: Int, startAt: String)(implicit m: Materializer): Source[JsObject, Future[NotUsed]] = {
 
     val query = BSONDocument(
