@@ -57,8 +57,6 @@ class TweetRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
       "batchIdent" -> BSONDocument("$lt" -> currentBatchIdent)
     )
 
-    println(query.asTry[JsObject])
-
     val sortBy = BSONDocument("timestamp_ms" -> 1)
 
     Source.futureSource {

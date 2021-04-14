@@ -22,6 +22,7 @@ import reactivemongo.play.json.compat.json2bson._
 
 import javax.swing.SortOrder
 import reactivemongo.api._
+import reactivemongo.api.collections.GenericCollection
 import reactivemongo.api.indexes.{Index, IndexType}
 
 import java.time.OffsetDateTime
@@ -87,5 +88,26 @@ class EntryRepo(dbProvider: DbProvider) extends MongoFormats with Logging {
       updateWriteResult <- coll.update.one(query, update, upsert = false, multi = false)
     } yield updateWriteResult
   }
+
+//  def attachTweets(pairs: List[(String, String)]) = {
+//
+//    entriesCollection.flatMap { coll =>
+//
+//      val update = coll.update(ordered = true)
+//
+//      val elements = Future.sequence(pairs.map { case (entryId, tweetId) =>
+//        update.element(
+//          q = BSONDocument("_id" -> entryId),
+//          u = BSONDocument("$addToSet" -> BSONDocument("tweets" -> tweetId)),
+//          upsert = false,
+//          multi = false
+//        )
+//      })
+//
+//      elements.flatMap { ups =>
+//        update.many(ups)
+//      }
+//    }
+//  }
 
 }
