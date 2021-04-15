@@ -46,6 +46,7 @@ object Application extends App with Logging {
 
   val service = new TweetProcessingService(tweetRepo, newTweetRepo, entryRepo, tweetStubRepo)
 
+  logger.info("Started")
 
   val count = 1000
   val startedAt = System.currentTimeMillis()
@@ -80,6 +81,7 @@ object Application extends App with Logging {
     .via(service.markTweetProcessedFlow)
     .viaMat(service.tweetEventMatchingFlow)(Keep.left)
     .toMat(Sink.ignore)(Keep.left)
+    .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
     .run()
 
 
