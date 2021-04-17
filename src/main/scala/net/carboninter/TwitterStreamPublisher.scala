@@ -2,7 +2,7 @@ package net.carboninter
 
 import akka.actor.{ActorSystem, Props}
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{ActorAttributes, KillSwitches, Materializer, Supervision, SystemMaterializer}
+import akka.stream._
 import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
 import net.carboninter.actors.TwitterTermsActor
@@ -11,7 +11,7 @@ import net.carboninter.connectors.TwitterConnector
 import net.carboninter.metrics.Metrics
 import net.carboninter.metrics.Metrics.metricsServer
 import net.carboninter.models.StubTweet
-import net.carboninter.services.{MqttService, TweetProcessingService}
+import net.carboninter.services.MqttService
 import net.carboninter.util.{Logging, Text}
 
 import scala.concurrent.Await

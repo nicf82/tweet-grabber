@@ -12,13 +12,6 @@ class TextSpec extends AnyWordSpecLike {
 
   "Matching entries to tweets, when the tweet contains the track name" should {
 
-    "match if the name is contained in the tweet and the track is contained also but without whitespace (e.g. as a hashtag)" in {
-
-      val lowerText = "the wonderful horsey mchorseface should do well in the 3:30 at #marketrasen"
-
-      Text.matchEntryToTweet("horsey mchorseface", "market rasen", lowerText) shouldBe true
-    }
-
     "match if the name is contained in the tweet but without any whitespace (e.g. as a hashtag)" in {
 
       val lowerText = "the wonderful #horseymchorseface should do well in the 3:30 at market rasen"
