@@ -6,6 +6,9 @@
     </appender>
 
     <variable name="ROOT_LOG_LEVEL" value="${ROOT_LOG_LEVEL:-INFO}" />
+    <variable name="APP_LOG_LEVEL" value="${APP_LOG_LEVEL:-INFO}" />
+
+    <logger name="net.carboninter" level="${APP_LOG_LEVEL}" />
 
     <root level="${ROOT_LOG_LEVEL}">
         <appender-ref ref="STDOUT" />

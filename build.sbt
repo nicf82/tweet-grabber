@@ -1,3 +1,5 @@
+import sbtassembly.MergeStrategy
+
 name := "tweet-grabber"
 
 version := "0.1"
@@ -10,9 +12,13 @@ val alpakkaMqttVersion = "2.0.2"
 val AkkaVersion = "2.6.12"
 
 assemblyMergeStrategy in assembly := {
-  case "application.conf"            => MergeStrategy.concat
-  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case x => MergeStrategy.first
+    case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+    case PathList("META-INF", "LICENSE") => MergeStrategy.discard
+    case PathList("module-info.class") => MergeStrategy.discard
+    case "reference.conf" => MergeStrategy.concat
+    case x =>
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
 }
 
 libraryDependencies ++= Seq(

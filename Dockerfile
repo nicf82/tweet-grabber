@@ -4,6 +4,8 @@ ADD src /root/src
 ADD project /root/project
 ADD build.sbt /root/
 
+ENV ROOT_LOG_LEVEL "INFO"
+ENV APP_LOG_LEVEL "INFO"
 ENV LOGBACK_CONF "logback-prod.xml"
 ENV MQTT_URI "tcp://localhost:1883"
 
