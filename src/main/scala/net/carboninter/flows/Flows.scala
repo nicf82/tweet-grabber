@@ -1,7 +1,7 @@
 package net.carboninter.flows
 
 import akka.stream.scaladsl.Flow
-import net.carboninter.Application.logger
+import net.carboninter.OldTweetProcessor.logger
 import net.carboninter.models.DissectedTweet
 import play.api.libs.json.JsObject
 

@@ -23,7 +23,7 @@ class TweetProcessingService(
 
   val standardIncomingTweetFlow = Flow[JsObject].mapConcat { jsTweet =>
       logger.trace("Incoming tweet: " + jsTweet)
-      Metrics.incomingTweetsCounter.inc()
+      Metrics.processedTweetsCounter.inc()
 
       //Grab an abbreviated tweet - we can store this for all tweets, for future reference in case we decide to grab the whole tweet
       jsTweet.validate[StubTweet] match {
@@ -71,6 +71,7 @@ class TweetProcessingService(
         Metrics.entriesReturnedCounter.inc()
         val lowerText = stubTweet.noNewLines.text.toLowerCase
 
+        //Check if both track and horse were found
         if( Text.matchEntryToTweet(entry.name, entry.track, lowerText) ) {
           logger.debug("Matched tweet text: " + hilight(lowerText, entry.name, entry.track))
           Metrics.entriesMatchedCounter.inc()

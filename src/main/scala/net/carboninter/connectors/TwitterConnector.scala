@@ -51,19 +51,19 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
       }
   }
 
-  def tweetSource(ks: SharedKillSwitch, phrase: String): Source[JsValue, SharedKillSwitch] = Source.futureSource(wsClient
+  def tweetSource(phrase: String): Source[JsObject, NotUsed] = Source.futureSource(wsClient
       .url("https://stream.twitter.com/1.1/statuses/filter.json?track=" + URLEncoder.encode(phrase, "UTF-8"))
       .sign(OAuthCalculator(consumerKey, requestToken))
       .withMethod("GET")
       .stream()
       .map(_.bodyAsSource)
     )
-    .viaMat(ks.flow)(Keep.right)
-    .viaMat(Framing.delimiter(ByteString.fromString("\n"), 20000))(Keep.left)
+    .viaMat(Framing.delimiter(ByteString.fromString("\n"), 20000))(Keep.right)
     .mapConcat { bs =>
-      Try(Json.parse(bs.utf8String)) match {
+      Try(Json.parse(bs.utf8String).as[JsObject]) match {
         case Failure(exception) =>
-          logger.error("Error parsing tweet json" + exception)
+          logger.error("Error parsing tweet json " + exception)
+          logger.error(bs.utf8String)
           None
         case Success(value) =>
           Some(value)

@@ -2,7 +2,7 @@ package net.carboninter.testutil
 
 import akka.actor.ActorSystem
 import akka.stream.{Supervision, SystemMaterializer}
-import net.carboninter.Application.logger
+import net.carboninter.OldTweetProcessor.logger
 
 trait TestActorSystem {
 

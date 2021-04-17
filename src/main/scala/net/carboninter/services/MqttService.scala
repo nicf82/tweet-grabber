@@ -10,7 +10,7 @@ import com.typesafe.config.Config
 import net.carboninter.models.TwitterTermsCommand
 import net.carboninter.util.{JsonDecoder, Logging}
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
-import play.api.libs.json.{JsError, JsSuccess, Json}
+import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Random, Success, Try}
@@ -21,7 +21,7 @@ class MqttService(config: Config)(implicit actorSystem: ActorSystem) extends Jso
 
   val clientID: String = config.getString("mqtt.clientId") + "-" + Random.alphanumeric.take(6).mkString
   val subscribeTopic = "tweet-grabber/to/set-terms"
-//  val publishTopic = "fetch-rbd/from/entry-results"
+  val publishTopic = "tweet-grabber/from/tweet"
 
 
   val connectionSettings = MqttConnectionSettings(
@@ -48,10 +48,10 @@ class MqttService(config: Config)(implicit actorSystem: ActorSystem) extends Jso
       decodeAs[TwitterTermsCommand](jsonString)
     }
 
-//  val entryResultSink = Flow[EntryResult]
-//    .map { entryResult =>
-//      MqttMessage(publishTopic, ByteString(entryResult.asJson.deepDropNullValues.noSpaces))
-//    }
-//    .to(MqttSink(connectionSettings, MqttQoS.AtLeastOnce))
+  val publishTweetSink = Flow[JsObject]
+    .map { entryResult =>
+      MqttMessage(publishTopic, ByteString(entryResult.toString))
+    }
+    .to(MqttSink(connectionSettings, MqttQoS.AtLeastOnce))
 
 }

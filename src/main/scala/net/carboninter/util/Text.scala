@@ -5,7 +5,7 @@ import net.carboninter.models.StubTweet
 object Text {
 
   def hilight(string: String, terms: String*) = terms.fold(string) { case (acc, s) =>
-    acc.replaceAll(s, Console.YELLOW_B + s + Console.RESET)
+    acc.replaceAll(s, Console.YELLOW_B + Console.BLACK + s + Console.RESET)
   }
 
   /**
@@ -18,11 +18,12 @@ object Text {
    */
   def matchEntryToTweet(name: String, track: String, lowerText: String) = {
 
-    //These may be extended such as adding track synonyms
-    def trackVariations(track: String) = Seq(track, track.filterNot(_==' '))
+    //These may be extended such as adding track synonyms - this wont work as twitter will only match the exaxt track anyway
+    //def trackVariations(track: String) = Seq(track, track.filterNot(_==' '))
+
     def nameVariations(name: String) = Seq(name, name.filterNot(_==' '))
 
-    if(trackVariations(track).exists(lowerText.contains)) {
+    if(lowerText.contains(track)) {
 
       val NameMatcher = (s"""(^|.*(.))(${nameVariations(name).mkString("|")})($$|(.).*)""").r
 

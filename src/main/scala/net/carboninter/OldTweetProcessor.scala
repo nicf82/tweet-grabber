@@ -19,7 +19,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 
 //See https://doc.akka.io/docs/alpakka/1.1.2/examples/mqtt-samples.html
 
-object Application extends App with Logging {
+object OldTweetProcessor extends App with Logging {
 
   val config: Config = ConfigFactory.load()
   val driver = new AsyncDriver()
@@ -48,30 +48,14 @@ object Application extends App with Logging {
 
   logger.info("Started")
 
-  val count = 1000
+//  val count = 1000
   val startedAt = System.currentTimeMillis()
 
-
-//  val source: Source[NotUsed, Cancellable] = Source.tick(0.seconds, 0.seconds, NotUsed).take(10)
 
   val wireTapSink = Sink.fold[Int, (StubTweet,JsObject)](0) {
     case (acc, _) => acc + 1
   }
 
-//  val flow = Flow[NotUsed]
-//    .flatMapConcat { _ =>
-//      logger.info(s"Requesting batch of $count")
-//      service.standardTweetProcessingStream(200, wireTapSink)
-//    }
-//
-//  val (cancellable, fcount) = source
-//    .viaMat(flow)(Keep.left)
-//    .toMat(Sink.ignore)(Keep.both)
-//    .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
-//    .run()
-
-
-//  service.standardTweetProcessingStream(count, wireTapSink)
 
   val (killSwitch, tweetCount) = tweetRepo.tweetsSource(2)
     .viaMat(KillSwitches.single)(Keep.right)

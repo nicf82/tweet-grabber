@@ -2,7 +2,7 @@ package net.carboninter.services
 
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.{Sink, Source}
-import net.carboninter.Application.logAndStopDecider
+import net.carboninter.OldTweetProcessor.logAndStopDecider
 import net.carboninter.models.StubTweet
 import net.carboninter.repos.{EntryRepo, NewTweetRepo, TweetRepo, TweetStubRepo}
 import net.carboninter.testutil.{Fixtures, TestActorSystem}
