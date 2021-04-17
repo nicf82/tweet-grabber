@@ -10,11 +10,6 @@ val alpakkaMqttVersion = "2.0.2"
 val AkkaVersion = "2.6.12"
 
 libraryDependencies ++= Seq(
-  "org.reactivemongo" %% "reactivemongo" % "1.0.3" exclude("log4j", "log4j"),
-  "org.reactivemongo" %% "reactivemongo-akkastream" % "1.0.3" exclude("log4j", "log4j"),
-
-  "org.reactivemongo" %% "reactivemongo-play-json-compat" % "1.0.3-play28",
-
   "com.typesafe.play" %% "play-ahc-ws-standalone" % "2.1.3",
   "com.typesafe.play" %% "play-ws-standalone-json" % "2.1.3",
 
