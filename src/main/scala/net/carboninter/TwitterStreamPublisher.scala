@@ -41,7 +41,7 @@ object TwitterStreamPublisher extends App with Logging {
 
   val ttaRef = actorSystem.actorOf(Props(new TwitterTermsActor))
 
-  val (commandStreamDone, commandStreamKS) = mqttService.twitterTermsCommandSource
+  val (commandStreamConnected, commandStreamKS) = mqttService.twitterTermsCommandSource
     .viaMat(KillSwitches.single)(Keep.both)
     .map { command =>
       SetState(command.liveTracks.map(_.track).sorted)
@@ -51,7 +51,7 @@ object TwitterStreamPublisher extends App with Logging {
     .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
     .run()
 
-  val tweetStreamKillSwitch = Source.repeat(GetState)
+  val tweetStreamKillSwitch = Source.tick(0.millis, 500.millis, GetState)
     .viaMat(KillSwitches.single)(Keep.right)
     .ask[List[String]](ttaRef)
     .mapConcat {
@@ -86,8 +86,8 @@ object TwitterStreamPublisher extends App with Logging {
     .run()
 
 
-  val result = commandStreamDone.map { _ =>
-    logger.info("Started")
+  val result = commandStreamConnected.map { _ =>
+    logger.info("MQTT Connected, listening for twitter terms")
     //actorSystem.terminate()
   }
 

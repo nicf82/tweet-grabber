@@ -11,5 +11,11 @@ object Metrics {
     .labelNames("track")
     .register()
 
+  val requestCounter = Counter.build()
+    .name("tg_twitter_stream_request_total")
+    .help(s"Total twitter stream requests")
+    .labelNames("status")
+    .register()
+
   val metricsServer = new HTTPServer(9416)
 }
