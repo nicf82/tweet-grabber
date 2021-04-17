@@ -9,6 +9,12 @@ val alpakkaMqttVersion = "2.0.2"
 
 val AkkaVersion = "2.6.12"
 
+assemblyMergeStrategy in assembly := {
+  case "application.conf"            => MergeStrategy.concat
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
+
 libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-ahc-ws-standalone" % "2.1.3",
   "com.typesafe.play" %% "play-ws-standalone-json" % "2.1.3",

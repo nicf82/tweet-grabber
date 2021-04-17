@@ -8,7 +8,7 @@ ENV LOGBACK_CONF "logback-prod.xml"
 ENV MQTT_URI "tcp://localhost:1883"
 
 RUN cd /root
-RUN sbt compile assembly
+RUN sbt "set test in assembly := {}" compile assembly
 
 #Metrics server
 EXPOSE 9416
