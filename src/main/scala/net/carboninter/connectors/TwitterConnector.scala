@@ -7,6 +7,8 @@ import akka.stream.{KillSwitches, SharedKillSwitch, UniqueKillSwitch}
 import akka.stream.scaladsl.{Framing, Keep, Source}
 import akka.util.ByteString
 import com.typesafe.config.Config
+import net.carboninter.metrics
+import net.carboninter.metrics.Metrics
 import net.carboninter.util.Logging
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import play.api.libs.oauth.{ConsumerKey, OAuthCalculator, RequestToken}
@@ -61,10 +63,12 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
     .mapConcat { bs =>
       Try(Json.parse(bs.utf8String).as[JsObject]) match {
         case Failure(exception) =>
-          logger.error("Error parsing tweet json " + exception)
+          logger.error("Error parsing tweet json ", exception)
           logger.error(bs.utf8String)
+          Metrics.unparsableFrameCounter.labels("unknown").inc()  //TODO - try to put a reason in here
           None
         case Success(value) =>
+          Metrics.tweetParsedCounter.inc()
           Some(value)
       }
     }
@@ -93,10 +97,17 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
       case _                 => false
     }
 
-    cb.withCircuitBreaker(theCall, failureFn).map(_.bodyAsSource).recover {
-      case e =>
-        logger.error("Error connecting twitter stream", e)
-        Source.empty[ByteString]
-    }
+    cb.withCircuitBreaker(theCall, failureFn)
+      .map { response =>
+        Metrics.streamConnectResponseCounter.labels(response.status.toString).inc()
+        response
+      }
+      .map(_.bodyAsSource)
+      .recover {
+        case e =>
+          logger.error("Error connecting twitter stream", e)
+          Metrics.streamConnectResponseCounter.labels(e.getClass.getName).inc()
+          Source.empty[ByteString]
+      }
   }
 }

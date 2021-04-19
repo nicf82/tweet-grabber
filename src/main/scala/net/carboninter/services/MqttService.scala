@@ -23,13 +23,11 @@ class MqttService(config: Config)(implicit actorSystem: ActorSystem) extends Jso
   val subscribeTopic = "tweet-grabber/to/set-terms"
   val publishTopic = "tweet-grabber/from/tweet"
 
-
   val connectionSettings = MqttConnectionSettings(
     config.getString("mqtt.uri"),
     clientID,
     new MemoryPersistence
-  )
-  //.withAutomaticReconnect(true)
+  ).withAutomaticReconnect(true)
 
   val twitterTermsCommandSource: Source[TwitterTermsCommand, Future[Done]] =
     MqttSource.atLeastOnce(

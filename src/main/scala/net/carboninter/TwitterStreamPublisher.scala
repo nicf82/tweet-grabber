@@ -71,7 +71,7 @@ object TwitterStreamPublisher extends App with Logging {
 
           //We found a tweet containing a track name, log metric to see which tracks are found most often
           for(track <- terms if lowerText.contains(track)) {
-            Metrics.streamedTweetCounter.labels(track).inc()
+            Metrics.tweetTrackMentionCounter.labels(track).inc()
           }
 
           (js, terms, lowerText)
