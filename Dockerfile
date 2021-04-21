@@ -4,10 +4,12 @@ ADD src /root/src
 ADD project /root/project
 ADD build.sbt /root/
 
+ENV APP_NAME "tweet-grabber"
 ENV ROOT_LOG_LEVEL "INFO"
 ENV APP_LOG_LEVEL "INFO"
 ENV LOGBACK_CONF "logback-prod.xml"
 ENV MQTT_URI "tcp://localhost:1883"
+ENV LOGSTASH_DESTINATION "localhost:4560"
 
 RUN cd /root
 RUN sbt "set test in assembly := {}" compile assembly

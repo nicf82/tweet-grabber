@@ -1,17 +1,12 @@
 package net.carboninter
 
-import akka.actor.{ActorSystem, Props}
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.actor.ActorSystem
 import akka.stream._
-import akka.util.Timeout
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.typesafe.config.{Config, ConfigFactory}
-import net.carboninter.actors.TwitterTermsActor
-import net.carboninter.actors.TwitterTermsActor.{GetState, SetState}
-import net.carboninter.connectors.TwitterConnector
-import net.carboninter.metrics.Metrics
+import net.carboninter.actors.TwitterTermsActor.GetState
 import net.carboninter.metrics.Metrics.metricsServer
-import net.carboninter.models.StubTweet
-import net.carboninter.services.MqttService
+import net.carboninter.services.{MqttService, TwitterService}
 import net.carboninter.util.{Logging, Text}
 
 import scala.concurrent.Await
@@ -27,56 +22,26 @@ object TwitterStreamPublisher extends App with Logging {
   implicit val actorSystem = ActorSystem()
   import actorSystem.dispatcher
   implicit val materializer: Materializer = SystemMaterializer(actorSystem).materializer
-  implicit val askTimeout = Timeout(5.seconds)
 
 
   val logAndStopDecider: Supervision.Decider = { e =>
     logger.error("Unhandled exception in stream", e)
-    Supervision.Stop
+    Supervision.Resume
   }
 
-  val twitterConnector = new TwitterConnector(config)
-
+  val twitterService = new TwitterService(config)
   val mqttService = new MqttService(config)
-
-  val ttaRef = actorSystem.actorOf(Props(new TwitterTermsActor))
 
   val (commandStreamConnected, commandStreamKS) = mqttService.twitterTermsCommandSource
     .viaMat(KillSwitches.single)(Keep.both)
-    .map { command =>
-      SetState(command.liveTracks.map(_.track).sorted)
-    }
-    .ask[List[String]](ttaRef)
+    .via(twitterService.setTwitterTermsStateFlow)
     .to(Sink.foreach(println))
     .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
     .run()
 
   val tweetStreamKillSwitch = Source.tick(0.millis, 500.millis, GetState)
     .viaMat(KillSwitches.single)(Keep.right)
-    .ask[List[String]](ttaRef)
-    .mapConcat {
-      case Nil => None
-      case terms => Some(terms)
-    }
-    .flatMapConcat { terms =>
-      twitterConnector
-        .tweetSource(terms.mkString(","))
-        .zip(Source.repeat(GetState).ask[List[String]](ttaRef))
-        .takeWhile { case (_, t) => //Continue to consume the stream as long as terms have not changed
-          t == terms
-        }
-        .map { case (js, terms) =>
-
-          val lowerText = js.as[StubTweet].text.toLowerCase
-
-          //We found a tweet containing a track name, log metric to see which tracks are found most often
-          for(track <- terms if lowerText.contains(track)) {
-            Metrics.tweetTrackMentionCounter.labels(track).inc()
-          }
-
-          (js, terms, lowerText)
-        }
-    }
+    .via(twitterService.tweetStream)
     .map { case (js, terms, lowerText) =>
       logger.debug("Publishing: " + Text.hilight(lowerText, terms: _*))
       js

@@ -5,12 +5,22 @@
         </encoder>
     </appender>
 
+    <variable name="APP_NAME" value="${APP_NAME}" />
     <variable name="ROOT_LOG_LEVEL" value="${ROOT_LOG_LEVEL:-INFO}" />
     <variable name="APP_LOG_LEVEL" value="${APP_LOG_LEVEL:-INFO}" />
+    <variable name="LOGSTASH_DESTINATION" value="${LOGSTASH_DESTINATION:-logstash:4560}" />
 
     <logger name="net.carboninter" level="${APP_LOG_LEVEL}" />
 
+    <appender name="STASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${LOGSTASH_DESTINATION}</destination>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"app":"${APP_NAME}"}</customFields>
+        </encoder>
+    </appender>
+
     <root level="${ROOT_LOG_LEVEL}">
+        <appender-ref ref="STASH" />
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

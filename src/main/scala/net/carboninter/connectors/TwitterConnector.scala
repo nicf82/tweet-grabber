@@ -73,16 +73,24 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
       }
     }
 
-  //TODO - add metrics around this stuff
-
+  //TODO - maybe replace with a RestartSource.withBackoff
   val cb = new CircuitBreaker(
     scheduler = actorSystem.scheduler,
     maxFailures = 2,
-    callTimeout = 5.seconds,
+    callTimeout = 20.seconds,
     resetTimeout = 1.second,
     maxResetTimeout = 1.minute,
     exponentialBackoffFactor = 2.0
   )
+
+  //TODO - add metrics around this stuff
+  cb.onCallSuccess(t => logger.info(s"Twitter stream connection established, took ${t/1000}ms"))
+  cb.onCallFailure(t => logger.warn(s"Twitter stream connection could not be established, not due to timeout after ${t/1000}ms"))
+  cb.onCallTimeout(t => logger.warn(s"Twitter stream connection could not be established due to timeout after ${t/1000}ms"))
+  cb.onOpen(logger.warn("Twitter stream circuit breaker open"))
+  cb.onHalfOpen(logger.warn("Twitter stream circuit breaker half open"))
+  cb.onClose(logger.warn("Twitter stream circuit breaker closed"))
+  cb.onCallBreakerOpen(logger.warn("Twitter stream connection call failed due to circuit breaker being open"))
 
   private def getTweetStream(phrase: String): Future[Source[ByteString, _]] = {
 
