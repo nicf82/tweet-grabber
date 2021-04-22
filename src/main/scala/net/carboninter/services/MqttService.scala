@@ -42,7 +42,7 @@ class MqttService(config: Config)(implicit actorSystem: ActorSystem) extends Jso
     }
     .mapConcat { msg =>
       val jsonString = msg.payload.utf8String
-      logger.info("Received message: " + jsonString)
+      logger.debug("Received message: " + jsonString)
       decodeAs[TwitterTermsCommand](jsonString)
     }
 

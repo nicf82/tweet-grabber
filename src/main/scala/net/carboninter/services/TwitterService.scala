@@ -1,9 +1,10 @@
 package net.carboninter.services
 
 import akka.actor.{ActorSystem, Props}
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.typesafe.config.Config
+import net.carboninter.TwitterStreamPublisher.logger
 import net.carboninter.actors.TwitterTermsActor
 import net.carboninter.actors.TwitterTermsActor.{GetState, SetState}
 import net.carboninter.connectors.TwitterConnector
@@ -39,6 +40,7 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
         .tweetSource(terms.mkString(","))
         .zip(Source.repeat(GetState).ask[List[String]](ttaRef))
         .takeWhile { case (_, t) => //Continue to consume the stream as long as terms have not changed
+          logger.info("Terms have changed, ending current twitter stream")
           t == terms
         }
         .map { case (js, terms) =>
@@ -53,4 +55,12 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
           (js, terms, lowerText)
         }
     }
+
+  val termsSink = Sink.fold[List[String], List[String]](Nil) {
+    case (acc, t) if acc == t =>
+      acc
+    case (_, t) =>
+      logger.info("New terms set: " + t.mkString(", "))
+      t
+  }
 }

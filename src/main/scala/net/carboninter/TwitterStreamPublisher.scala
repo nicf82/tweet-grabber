@@ -35,7 +35,7 @@ object TwitterStreamPublisher extends App with Logging {
   val (commandStreamConnected, commandStreamKS) = mqttService.twitterTermsCommandSource
     .viaMat(KillSwitches.single)(Keep.both)
     .via(twitterService.setTwitterTermsStateFlow)
-    .to(Sink.foreach(println))
+    .to(twitterService.termsSink)
     .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
     .run()
 
@@ -52,7 +52,9 @@ object TwitterStreamPublisher extends App with Logging {
 
 
   val result = commandStreamConnected.map { _ =>
-    logger.info("MQTT Connected, listening for twitter terms")
+    logger.info("MQTT Connected")
+    logger.info("Consuming TwitterTermsCommands on: " + mqttService.subscribeTopic)
+    logger.info("Publishing Tweets on: " + mqttService.publishTopic)
     //actorSystem.terminate()
   }
 
