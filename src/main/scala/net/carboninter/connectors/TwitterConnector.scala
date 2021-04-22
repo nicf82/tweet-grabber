@@ -1,12 +1,13 @@
 package net.carboninter.connectors
 
 import akka.NotUsed
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem, Cancellable}
 import akka.pattern.CircuitBreaker
 import akka.stream.{KillSwitches, SharedKillSwitch, UniqueKillSwitch}
-import akka.stream.scaladsl.{Framing, Keep, Source}
-import akka.util.ByteString
+import akka.stream.scaladsl.{Framing, Keep, Merge, Source}
+import akka.util.{ByteString, Timeout}
 import com.typesafe.config.Config
+import net.carboninter.actors.TwitterTermsActor.GetState
 import net.carboninter.metrics
 import net.carboninter.metrics.Metrics
 import net.carboninter.util.Logging
@@ -58,20 +59,33 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
   def getRetweetsSource(id: String): Source[JsObject, Future[NotUsed]] =
     Source.futureSource(getRetweets(id).map(x => Source( x.toSeq)))
 
-  def tweetSource(phrase: String): Source[JsObject, NotUsed] = Source.futureSource(getTweetStream(phrase))
-    .viaMat(Framing.delimiter(ByteString.fromString("\n"), 20000))(Keep.right)
-    .mapConcat { bs =>
-      Try(Json.parse(bs.utf8String).as[JsObject]) match {
-        case Failure(exception) =>
-          logger.error("Error parsing tweet json ", exception)
-          logger.error(bs.utf8String)
-          Metrics.unparsableFrameCounter.labels("unknown").inc()  //TODO - try to put a reason in here
-          None
-        case Success(value) =>
-          Metrics.tweetParsedCounter.inc()
-          Some(value)
+  def tweetSource(streamTerms: List[String], ttaRef: ActorRef)(implicit timeout: Timeout): Source[JsObject, NotUsed] = {
+
+    val currentTermsHeartBeat: Source[Left[List[String], Nothing], Cancellable] = Source.tick(1.second, 1.second, GetState).ask[List[String]](ttaRef).map(Left(_))
+    val tweets: Source[Right[Nothing, ByteString], Future[Any]] = Source.futureSource(getTweetStream(streamTerms.mkString(","))).map(Right(_))
+
+    Source.combine(currentTermsHeartBeat, tweets)(Merge(_))
+      .takeWhile {
+        case Left(liveTerms) if liveTerms != streamTerms =>
+          logger.info("Ending current twitter stream, terms have changed from: " + streamTerms.mkString(","))
+          false
+        case _ => true
       }
-    }
+      .mapConcat(_.toOption)
+      .viaMat(Framing.delimiter(ByteString.fromString("\n"), 20000))(Keep.right)
+      .mapConcat { bs =>
+        Try(Json.parse(bs.utf8String).as[JsObject]) match {
+          case Failure(exception) =>
+            logger.error("Error parsing tweet json ", exception)
+            logger.error(bs.utf8String)
+            Metrics.unparsableFrameCounter.labels("unknown").inc()  //TODO - try to put a reason in here
+            None
+          case Success(value) =>
+            Metrics.tweetParsedCounter.inc()
+            Some(value)
+        }
+      }
+  }
 
   //TODO - maybe replace with a RestartSource.withBackoff
   val cb = new CircuitBreaker(
