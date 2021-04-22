@@ -26,7 +26,7 @@ object TwitterStreamPublisher extends App with Logging {
 
   val logAndStopDecider: Supervision.Decider = { e =>
     logger.error("Unhandled exception in stream", e)
-    Supervision.Resume
+    Supervision.Stop  //Did not fix it
   }
 
   val twitterService = new TwitterService(config)
@@ -52,7 +52,7 @@ object TwitterStreamPublisher extends App with Logging {
 
 
   val result = commandStreamConnected.map { _ =>
-    logger.info("MQTT Connected")
+    logger.info("MQTT Connected to " + mqttService.mqttUri)
     logger.info("Consuming TwitterTermsCommands on: " + mqttService.subscribeTopic)
     logger.info("Publishing Tweets on: " + mqttService.publishTopic)
     //actorSystem.terminate()

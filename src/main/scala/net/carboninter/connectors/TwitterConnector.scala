@@ -3,10 +3,11 @@ package net.carboninter.connectors
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Cancellable}
 import akka.pattern.CircuitBreaker
-import akka.stream.{KillSwitches, SharedKillSwitch, UniqueKillSwitch}
+import akka.stream.{ActorAttributes, KillSwitches, SharedKillSwitch, UniqueKillSwitch}
 import akka.stream.scaladsl.{Framing, Keep, Merge, Source}
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.Config
+import net.carboninter.TwitterStreamPublisher.logAndStopDecider
 import net.carboninter.actors.TwitterTermsActor.GetState
 import net.carboninter.metrics
 import net.carboninter.metrics.Metrics
@@ -61,10 +62,14 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
 
   def tweetSource(streamTerms: List[String], ttaRef: ActorRef)(implicit timeout: Timeout): Source[JsObject, NotUsed] = {
 
-    val currentTermsHeartBeat: Source[Left[List[String], Nothing], Cancellable] = Source.tick(1.second, 1.second, GetState).ask[List[String]](ttaRef).map(Left(_))
+    val currentTermsHeartBeat: Source[Left[List[String], Nothing], Cancellable] = Source.tick(1.second, 5.second, GetState).ask[List[String]](ttaRef).map(Left(_))
     val tweets: Source[Right[Nothing, ByteString], Future[Any]] = Source.futureSource(getTweetStream(streamTerms.mkString(","))).map(Right(_))
 
-    Source.combine(currentTermsHeartBeat, tweets)(Merge(_))
+    Source.combine(currentTermsHeartBeat, tweets)(Merge(_, eagerComplete = true))
+      .map { x =>
+        logger.warn(x.getClass.toString)
+        x
+      }
       .takeWhile {
         case Left(liveTerms) if liveTerms != streamTerms =>
           logger.info("Ending current twitter stream, terms have changed from: " + streamTerms.mkString(","))
@@ -98,9 +103,9 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
   )
 
   //TODO - add metrics around this stuff
-  cb.onCallSuccess(t => logger.info(s"Twitter stream connection established, took ${t/1000}ms"))
-  cb.onCallFailure(t => logger.warn(s"Twitter stream connection could not be established, not due to timeout after ${t/1000}ms"))
-  cb.onCallTimeout(t => logger.warn(s"Twitter stream connection could not be established due to timeout after ${t/1000}ms"))
+  cb.onCallSuccess(t => logger.info(s"Twitter stream connection established, took ${t/1000000}ms"))
+  cb.onCallFailure(t => logger.warn(s"Twitter stream connection could not be established, not due to timeout after ${t/1000000}ms"))
+  cb.onCallTimeout(t => logger.warn(s"Twitter stream connection could not be established due to timeout after ${t/1000000}ms"))
   cb.onOpen(logger.warn("Twitter stream circuit breaker open"))
   cb.onHalfOpen(logger.warn("Twitter stream circuit breaker half open"))
   cb.onClose(logger.warn("Twitter stream circuit breaker closed"))
@@ -112,6 +117,7 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
       .url("https://stream.twitter.com/1.1/statuses/filter.json?track=" + URLEncoder.encode(phrase, "UTF-8"))
       .sign(OAuthCalculator(consumerKey, requestToken))
       .withMethod("GET")
+      .withRequestTimeout(20.seconds)
       .stream()
 
     val failureFn = (x: Try[StandaloneWSResponse]) => x match {
@@ -119,17 +125,26 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
       case _                 => false
     }
 
-    cb.withCircuitBreaker(theCall, failureFn)
-      .map { response =>
-        Metrics.streamConnectResponseCounter.labels(response.status.toString).inc()
-        response
-      }
-      .map(_.bodyAsSource)
-      .recover {
-        case e =>
-          logger.error("Error connecting twitter stream", e)
-          Metrics.streamConnectResponseCounter.labels(e.getClass.getName).inc()
-          Source.empty[ByteString]
-      }
+
+
+    theCall.map { response =>
+      response
+        .bodyAsSource
+        .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider)) //Did not fix it
+    }
+
+//    cb.withCircuitBreaker(theCall, failureFn)
+//      .map { response =>
+//        Metrics.streamConnectResponseCounter.labels(response.status.toString).inc()
+//        response
+//      }
+//      .map(_.bodyAsSource)
+      //Did not fix it
+//      .recover {
+//        case e =>
+//          logger.error("Error connecting twitter stream", e)
+//          Metrics.streamConnectResponseCounter.labels(e.getClass.getName).inc()
+//          Source.empty[ByteString]
+//      }
   }
 }

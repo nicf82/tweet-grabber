@@ -40,7 +40,7 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
         .tweetSource(terms, ttaRef)
         .map { case js =>
 
-          val lowerText = js.as[StubTweet].text.toLowerCase
+          val lowerText = js.as[StubTweet].noNewLines.text.toLowerCase
 
           //We found a tweet containing a track name, log metric to see which tracks are found most often
           for(track <- terms if lowerText.contains(track)) {

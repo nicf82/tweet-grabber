@@ -19,12 +19,13 @@ class MqttService(config: Config)(implicit actorSystem: ActorSystem) extends Jso
 
   import actorSystem.dispatcher
 
+  val mqttUri: String = config.getString("mqtt.uri")
   val clientID: String = config.getString("mqtt.clientId") + "-" + Random.alphanumeric.take(6).mkString
   val subscribeTopic = "tweet-grabber/to/set-terms"
   val publishTopic = "tweet-grabber/from/tweet"
 
   val connectionSettings = MqttConnectionSettings(
-    config.getString("mqtt.uri"),
+    mqttUri,
     clientID,
     new MemoryPersistence
   ).withAutomaticReconnect(true)
