@@ -1,33 +1,28 @@
 package net.carboninter.connectors
 
 import akka.NotUsed
-import akka.actor.{ActorRef, ActorSystem, Cancellable}
-import akka.pattern.CircuitBreaker
-import akka.stream.{ActorAttributes, KillSwitches, SharedKillSwitch, UniqueKillSwitch}
-import akka.stream.scaladsl.{Framing, Keep, Merge, Source}
-import akka.util.{ByteString, Timeout}
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, headers}
+import akka.stream.scaladsl.Source
 import com.typesafe.config.Config
-import net.carboninter.TwitterStreamPublisher.logAndStopDecider
-import net.carboninter.actors.TwitterTermsActor.GetState
-import net.carboninter.metrics
 import net.carboninter.metrics.Metrics
 import net.carboninter.util.Logging
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
+import play.api.libs.json.{JsArray, JsObject, JsValue}
 import play.api.libs.oauth.{ConsumerKey, OAuthCalculator, RequestToken}
 import play.api.libs.ws.JsonBodyReadables._
-import play.api.libs.ws.{StandaloneWSRequest, StandaloneWSResponse}
-import play.api.libs.ws.ahc.StandaloneAhcWSClient
+import play.api.libs.ws.ahc.{AhcWSClientConfigFactory, StandaloneAhcWSClient}
+import play.shaded.ahc.org.asynchttpclient.Param
+import play.shaded.ahc.org.asynchttpclient.oauth.OAuthSignatureCalculatorInstance
 
 import java.net.URLEncoder
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
-import scala.concurrent.duration._
 
 class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extends Logging {
 
   import actorSystem.dispatcher
 
-  val wsClient = StandaloneAhcWSClient()
+  val wsClient = StandaloneAhcWSClient(AhcWSClientConfigFactory.forClientConfig())
 
   val apiKey = config.getString("twitter.apiKey")
   val apiSecret = config.getString("twitter.apiSecret")
@@ -60,91 +55,45 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
   def getRetweetsSource(id: String): Source[JsObject, Future[NotUsed]] =
     Source.futureSource(getRetweets(id).map(x => Source( x.toSeq)))
 
-  def tweetSource(streamTerms: List[String], ttaRef: ActorRef)(implicit timeout: Timeout): Source[JsObject, NotUsed] = {
+  //See https://developer.twitter.com/en/docs/twitter-api/v1/tweets/filter-realtime/guides/basic-stream-parameters
+  def buildTweetStreamAkka(terms: List[String]) = {
 
-    val currentTermsHeartBeat: Source[Left[List[String], Nothing], Cancellable] = Source.tick(1.second, 5.second, GetState).ask[List[String]](ttaRef).map(Left(_))
-    val tweets: Source[Right[Nothing, ByteString], Future[Any]] = Source.futureSource(getTweetStream(streamTerms.mkString(","))).map(Right(_))
 
-    Source.combine(currentTermsHeartBeat, tweets)(Merge(_, eagerComplete = true))
-      .map { x =>
-        logger.warn(x.getClass.toString)
-        x
+    val ahcConsumerKey = new play.shaded.ahc.org.asynchttpclient.oauth.ConsumerKey(apiKey, apiSecret)
+    val ahcRequestToken = new play.shaded.ahc.org.asynchttpclient.oauth.RequestToken(token, tokenSecret)
+
+    val fetchUri = "https://stream.twitter.com/1.1/statuses/filter.json?language=en&track=" + URLEncoder.encode(terms.mkString(","), "UTF-8")
+
+    val uri = play.shaded.ahc.org.asynchttpclient.uri.Uri.create(fetchUri)
+
+    val oasci = new OAuthSignatureCalculatorInstance
+
+    val formParams = new java.util.ArrayList[Param]()
+    val queryParams = new java.util.ArrayList[Param]()
+    queryParams.add(new Param("language", "en"))
+    queryParams.add(new Param("track", URLEncoder.encode(terms.mkString(","), "UTF-8")))
+
+    val authorization: String = oasci.computeAuthorizationHeader(ahcConsumerKey, ahcRequestToken, uri, "GET", formParams, queryParams)
+
+    val cookieHeader = headers.RawHeader("authorization", authorization)
+
+
+    val request = HttpRequest(HttpMethods.GET, fetchUri, List(cookieHeader))
+
+    val fs = for {
+      response <- Http()(actorSystem).singleRequest(request)
+    } yield {
+      Metrics.streamConnectResponseCounter.labels(response.status.toString).inc()
+      response.status match {
+        case code if code.isSuccess() =>
+          response.entity.dataBytes
+        case code =>
+          throw new RuntimeException(s"Twitter Stream connect failed with status: $code")
+
       }
-      .takeWhile {
-        case Left(liveTerms) if liveTerms != streamTerms =>
-          logger.info("Ending current twitter stream, terms have changed from: " + streamTerms.mkString(","))
-          false
-        case _ => true
-      }
-      .mapConcat(_.toOption)
-      .viaMat(Framing.delimiter(ByteString.fromString("\n"), 20000))(Keep.right)
-      .mapConcat { bs =>
-        Try(Json.parse(bs.utf8String).as[JsObject]) match {
-          case Failure(exception) =>
-            logger.error("Error parsing tweet json ", exception)
-            logger.error(bs.utf8String)
-            Metrics.unparsableFrameCounter.labels("unknown").inc()  //TODO - try to put a reason in here
-            None
-          case Success(value) =>
-            Metrics.tweetParsedCounter.inc()
-            Some(value)
-        }
-      }
-  }
-
-  //TODO - maybe replace with a RestartSource.withBackoff
-  val cb = new CircuitBreaker(
-    scheduler = actorSystem.scheduler,
-    maxFailures = 2,
-    callTimeout = 20.seconds,
-    resetTimeout = 1.second,
-    maxResetTimeout = 1.minute,
-    exponentialBackoffFactor = 2.0
-  )
-
-  //TODO - add metrics around this stuff
-  cb.onCallSuccess(t => logger.info(s"Twitter stream connection established, took ${t/1000000}ms"))
-  cb.onCallFailure(t => logger.warn(s"Twitter stream connection could not be established, not due to timeout after ${t/1000000}ms"))
-  cb.onCallTimeout(t => logger.warn(s"Twitter stream connection could not be established due to timeout after ${t/1000000}ms"))
-  cb.onOpen(logger.warn("Twitter stream circuit breaker open"))
-  cb.onHalfOpen(logger.warn("Twitter stream circuit breaker half open"))
-  cb.onClose(logger.warn("Twitter stream circuit breaker closed"))
-  cb.onCallBreakerOpen(logger.warn("Twitter stream connection call failed due to circuit breaker being open"))
-
-  private def getTweetStream(phrase: String): Future[Source[ByteString, _]] = {
-
-    def theCall: Future[StandaloneWSResponse] = wsClient
-      .url("https://stream.twitter.com/1.1/statuses/filter.json?track=" + URLEncoder.encode(phrase, "UTF-8"))
-      .sign(OAuthCalculator(consumerKey, requestToken))
-      .withMethod("GET")
-      .withRequestTimeout(20.seconds)
-      .stream()
-
-    val failureFn = (x: Try[StandaloneWSResponse]) => x match {
-      case Success(response) => response.status != 200
-      case _                 => false
     }
 
-
-
-    theCall.map { response =>
-      response
-        .bodyAsSource
-        .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider)) //Did not fix it
-    }
-
-//    cb.withCircuitBreaker(theCall, failureFn)
-//      .map { response =>
-//        Metrics.streamConnectResponseCounter.labels(response.status.toString).inc()
-//        response
-//      }
-//      .map(_.bodyAsSource)
-      //Did not fix it
-//      .recover {
-//        case e =>
-//          logger.error("Error connecting twitter stream", e)
-//          Metrics.streamConnectResponseCounter.labels(e.getClass.getName).inc()
-//          Source.empty[ByteString]
-//      }
+    Source.futureSource(fs)
   }
+
 }

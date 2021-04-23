@@ -1,5 +1,6 @@
 package net.carboninter
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -13,7 +14,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, _}
 
 //See https://doc.akka.io/docs/alpakka/1.1.2/examples/mqtt-samples.html
-
+// https://blog.softwaremill.com/akka-streams-pitfalls-to-avoid-part-2-f93e60746c58
+// http://beyondthelines.net/computing/akka-streams-patterns/
 object TwitterStreamPublisher extends App with Logging {
 
   val config: Config = ConfigFactory.load()
@@ -26,7 +28,7 @@ object TwitterStreamPublisher extends App with Logging {
 
   val logAndStopDecider: Supervision.Decider = { e =>
     logger.error("Unhandled exception in stream", e)
-    Supervision.Stop  //Did not fix it
+    Supervision.Restart
   }
 
   val twitterService = new TwitterService(config)
@@ -39,11 +41,11 @@ object TwitterStreamPublisher extends App with Logging {
     .withAttributes(ActorAttributes.supervisionStrategy(logAndStopDecider))
     .run()
 
-  val tweetStreamKillSwitch = Source.tick(0.millis, 500.millis, GetState)
+  val tweetStreamKillSwitch = Source.tick(0.millis, 500.millis, NotUsed)
     .viaMat(KillSwitches.single)(Keep.right)
     .via(twitterService.tweetStream)
-    .map { case (js, terms, lowerText) =>
-      logger.debug("Publishing: " + Text.hilight(lowerText, terms: _*))
+    .map { case (js, liveTerms, lowerText) =>
+      logger.debug("Publishing: " + Text.hilight(lowerText, liveTerms: _*))
       js
     }
     .to(mqttService.publishTweetSink)

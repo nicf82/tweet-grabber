@@ -28,11 +28,17 @@ object Metrics {
     .labelNames("status")
     .register()
 
-  val streamConnectFailureCounter = Counter.build()
-    .name("tg_twitter_stream_connect_failure_total")
-    .help(s"Total twitter stream connect failures by reason")
-    .labelNames("reason")
-    .register()
+//  val streamInterruptionCounter = Counter.build()
+//    .name("tg_twitter_stream_interruption_total")
+//    .help(s"Total twitter stream interruptions by reason")
+//    .labelNames("reason")
+//    .register()
+//
+//  val streamConnectFailureCounter = Counter.build()
+//    .name("tg_twitter_stream_connect_failure_total")
+//    .help(s"Total twitter stream connect failures by reason")
+//    .labelNames("reason")
+//    .register()
 
   val metricsServer = new HTTPServer(9416)
 }

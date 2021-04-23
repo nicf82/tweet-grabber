@@ -1,8 +1,9 @@
 package net.carboninter.actors
 
 import akka.actor.Actor
+import net.carboninter.util.Logging
 
-class TwitterTermsActor extends Actor {
+class TwitterTermsActor extends Actor with Logging {
   import TwitterTermsActor._
 
   var currentTerms: List[String] = Nil
@@ -11,7 +12,8 @@ class TwitterTermsActor extends Actor {
     case SetState(t) =>
       this.currentTerms = t
       sender() ! currentTerms
-    case GetState =>
+    case GetState(asker) =>
+//      logger.debug("GetState from asker: " + asker + ", got: " + currentTerms.mkString(", "))
       sender() ! currentTerms
   }
 }
@@ -19,5 +21,5 @@ class TwitterTermsActor extends Actor {
 object TwitterTermsActor {
   trait Envelope
   case class SetState(value: List[String]) extends Envelope
-  case object GetState extends Envelope
+  case class GetState(asker: String) extends Envelope
 }

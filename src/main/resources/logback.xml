@@ -17,8 +17,11 @@
     </appender>
 
     <logger name="net.carboninter" level="DEBUG" />
+<!--    <logger name="play.shaded.ahc.org.asynchttpclient" level="DEBUG" />-->
+<!--    <logger name="akka" level="DEBUG" />-->
+<!--    <logger name="net.carboninter.actors" level="DEBUG" />-->
 
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE" />
     </root>
