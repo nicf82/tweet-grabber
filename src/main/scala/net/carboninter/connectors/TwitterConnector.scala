@@ -7,7 +7,7 @@ import akka.http.scaladsl.model.{HttpMethods, HttpRequest, headers}
 import akka.stream.scaladsl.Source
 import com.typesafe.config.Config
 import net.carboninter.metrics.Metrics
-import net.carboninter.util.Logging
+import net.carboninter.util.{Logging, TwitterOAuthHeaderGenerator}
 import play.api.libs.json.{JsArray, JsObject, JsValue}
 import play.api.libs.oauth.{ConsumerKey, OAuthCalculator, RequestToken}
 import play.api.libs.ws.JsonBodyReadables._
@@ -16,7 +16,10 @@ import play.shaded.ahc.org.asynchttpclient.Param
 import play.shaded.ahc.org.asynchttpclient.oauth.OAuthSignatureCalculatorInstance
 
 import java.net.URLEncoder
+import java.util
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
+
 
 class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extends Logging {
 
@@ -55,30 +58,22 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
   def getRetweetsSource(id: String): Source[JsObject, Future[NotUsed]] =
     Source.futureSource(getRetweets(id).map(x => Source( x.toSeq)))
 
+  val headerGenerator = new TwitterOAuthHeaderGenerator(apiKey, apiSecret, token, tokenSecret)
+
   //See https://developer.twitter.com/en/docs/twitter-api/v1/tweets/filter-realtime/guides/basic-stream-parameters
   def buildTweetStreamAkka(terms: List[String]) = {
 
+    val baseUrl = "https://stream.twitter.com/1.1/statuses/filter.json"
+    val params = Map(
+      "language" -> "en",
+      "track" -> terms.mkString(",")
+    )
 
-    val ahcConsumerKey = new play.shaded.ahc.org.asynchttpclient.oauth.ConsumerKey(apiKey, apiSecret)
-    val ahcRequestToken = new play.shaded.ahc.org.asynchttpclient.oauth.RequestToken(token, tokenSecret)
+    val authToken = headerGenerator.generateHeader("GET", baseUrl, params.asJava)
+    val authHeader = headers.RawHeader("authorization", authToken)
+    val url = baseUrl + "?" + params.map(kv => kv._1+"="+URLEncoder.encode(kv._2, "UTF-8")).mkString("&")
 
-    val fetchUri = "https://stream.twitter.com/1.1/statuses/filter.json?language=en&track=" + URLEncoder.encode(terms.mkString(","), "UTF-8")
-
-    val uri = play.shaded.ahc.org.asynchttpclient.uri.Uri.create(fetchUri)
-
-    val oasci = new OAuthSignatureCalculatorInstance
-
-    val formParams = new java.util.ArrayList[Param]()
-    val queryParams = new java.util.ArrayList[Param]()
-    queryParams.add(new Param("language", "en"))
-    queryParams.add(new Param("track", URLEncoder.encode(terms.mkString(","), "UTF-8")))
-
-    val authorization: String = oasci.computeAuthorizationHeader(ahcConsumerKey, ahcRequestToken, uri, "GET", formParams, queryParams)
-
-    val cookieHeader = headers.RawHeader("authorization", authorization)
-
-
-    val request = HttpRequest(HttpMethods.GET, fetchUri, List(cookieHeader))
+    val request = HttpRequest(HttpMethods.GET, url, List(authHeader))
 
     val fs = for {
       response <- Http()(actorSystem).singleRequest(request)
@@ -88,6 +83,7 @@ class TwitterConnector(config: Config)(implicit actorSystem: ActorSystem) extend
         case code if code.isSuccess() =>
           response.entity.dataBytes
         case code =>
+          response.discardEntityBytes()
           throw new RuntimeException(s"Twitter Stream connect failed with status: $code")
 
       }

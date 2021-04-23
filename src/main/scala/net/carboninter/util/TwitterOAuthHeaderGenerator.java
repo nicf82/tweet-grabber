@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import javax.crypto.Mac;
@@ -65,12 +66,11 @@ public class TwitterOAuthHeaderGenerator {
         append(base, oauth_consumer_key, consumerKey);
         append(base, oauth_token, token);
         append(base, oauth_signature_method, signatureMethod);
+        append(base, oauth_signature, signature);
         append(base, oauth_timestamp, timestamp);
         append(base, oauth_nonce, nonce);
         append(base, oauth_version, version);
-        append(base, oauth_signature, signature);
         base.deleteCharAt(base.length() - 1);
-        System.out.println("header : " + base.toString());
         return base.toString();
     }
 
@@ -156,7 +156,7 @@ public class TwitterOAuthHeaderGenerator {
     }
 
     private void append(StringBuilder builder, String key, String value) {
-        builder.append(encode(key)).append("=\"").append(encode(value)).append("\",");
+        builder.append(encode(key)).append("=\"").append(encode(value)).append("\", ");
     }
 
     private String getNonce() {

@@ -7,7 +7,6 @@ import akka.stream.RestartSettings
 import akka.stream.scaladsl.{Flow, Framing, Keep, Merge, RestartSource, Sink, Source}
 import akka.util.{ByteString, Timeout}
 import com.typesafe.config.Config
-import net.carboninter.TwitterStreamPublisher.logger
 import net.carboninter.actors.TwitterTermsActor
 import net.carboninter.actors.TwitterTermsActor.{GetState, SetState}
 import net.carboninter.connectors.TwitterConnector

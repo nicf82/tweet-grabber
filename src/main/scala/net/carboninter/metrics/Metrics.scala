@@ -1,6 +1,6 @@
 package net.carboninter.metrics
 
-import io.prometheus.client.{Counter, Gauge, SimpleTimer, Summary}
+import io.prometheus.client.Counter
 import io.prometheus.client.exporter.HTTPServer
 
 object Metrics {
