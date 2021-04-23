@@ -22,6 +22,11 @@ object Metrics {
     .labelNames("reason")
     .register()
 
+  val twitterKeepAliveCrCounter = Counter.build()
+    .name("tg_twitter_keepalive_cr_total")
+    .help(s"Total number of keepalive carriage returns received in Twitter stream")
+    .register()
+
   val streamConnectResponseCounter = Counter.build()
     .name("tg_twitter_stream_connect_response_total")
     .help(s"Total twitter stream connect responses by status")

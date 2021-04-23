@@ -71,7 +71,7 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
               .zip(Source.repeat(GetState("RunningTweetStream")).ask[List[String]](ttaRef))
               .takeWhile {
                 case (_, liveTerms) if liveTerms != streamTerms =>
-                  logger.info("Twitter stream ending, these terms old: " + streamTerms.mkString(","))
+                  logger.info("Twitter stream ending, these terms old: " + streamTerms.mkString(", "))
                   false
                 case _ => true
               }
@@ -79,17 +79,25 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
                 case (bs, _) if !bs.isEmpty => Some(bs)
                 case _ => None
               }
-              .viaMat(Framing.delimiter(ByteString.fromString("\n"), 40000))(Keep.right)
+              .viaMat(Framing.delimiter(ByteString.fromString("\n"), 40000, allowTruncation = true))(Keep.right)
               .mapConcat { bs =>
-                Try(Json.parse(bs.utf8String).as[JsObject]) match {
-                  case Failure(exception) =>
-                    logger.error("Error parsing tweet json", exception)
-                    logger.error(bs.utf8String)
-                    Metrics.unparsableFrameCounter.labels("unknown").inc()  //TODO - try to put a reason in here
-                    None
-                  case Success(value) =>
-                    Metrics.tweetParsedCounter.inc()
-                    Some((value, streamTerms))
+
+                val s = bs.utf8String
+                if(s == "\n") {
+                  Metrics.twitterKeepAliveCrCounter.inc()
+                  None
+                }
+                else {
+                  Try(Json.parse(s).as[JsObject]) match {
+                    case Failure(exception) =>
+                      logger.error("Error parsing tweet json", exception)
+                      logger.error(s)
+                      Metrics.unparsableFrameCounter.labels("unknown").inc() //TODO - try to put a reason in here
+                      None
+                    case Success(value) =>
+                      Metrics.tweetParsedCounter.inc()
+                      Some((value, streamTerms))
+                  }
                 }
               }
         }
