@@ -13,6 +13,7 @@ import net.carboninter.connectors.TwitterConnector
 import net.carboninter.metrics.Metrics
 import net.carboninter.models.{StubTweet, TwitterTermsCommand}
 import net.carboninter.util.Logging
+import net.logstash.logback.encoder.org.apache.commons.lang3.StringUtils
 import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.duration._
@@ -83,8 +84,9 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
               .mapConcat { bs =>
 
                 val s = bs.utf8String
-                if(s == "\n") {
+                if(s.forall(_.isWhitespace)) {
                   Metrics.twitterKeepAliveCrCounter.inc()
+                  logger.info("Skipping keepalive: " + s.map(_.toInt.formatted("0x%x")).mkString(", "))
                   None
                 }
                 else {
