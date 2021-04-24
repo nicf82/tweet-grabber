@@ -84,9 +84,8 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
               .mapConcat { bs =>
 
                 val s = bs.utf8String
-                if(s.forall(_.isWhitespace)) {
+                if(s.forall(_.isWhitespace)) { // its 0xd
                   Metrics.twitterKeepAliveCrCounter.inc()
-                  logger.info("Skipping keepalive: " + s.map(_.toInt.formatted("0x%x")).mkString(", "))
                   None
                 }
                 else {
