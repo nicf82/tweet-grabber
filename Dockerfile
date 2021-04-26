@@ -8,12 +8,14 @@ ENV T_API_KEY ""
 ENV T_API_SECRET ""
 ENV T_TOKEN ""
 ENV T_TOKEN_SECRET ""
+
 ENV APP_NAME "tweet-grabber"
 ENV ROOT_LOG_LEVEL "INFO"
 ENV APP_LOG_LEVEL "INFO"
 ENV LOGBACK_CONF "logback-prod.xml"
-ENV MQTT_URI "tcp://localhost:1883"
 ENV LOGSTASH_DESTINATION "localhost:4560"
+
+ENV MQTT_URI "tcp://localhost:1883"
 
 RUN cd /root
 RUN sbt "set test in assembly := {}" compile assembly
