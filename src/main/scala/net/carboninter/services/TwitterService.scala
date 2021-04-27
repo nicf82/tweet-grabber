@@ -16,6 +16,7 @@ import net.carboninter.util.Logging
 import net.logstash.logback.encoder.org.apache.commons.lang3.StringUtils
 import play.api.libs.json.{JsObject, Json}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -50,12 +51,17 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
       }
     }
 
-
   def tweetSource = {
+
+    trait StreamMsg {
+      def liveTerms: List[String]
+    }
+    case class JsonMsg(jsObject: JsObject, liveTerms: List[String]) extends StreamMsg
+    case class HeartBeatMsg(liveTerms: List[String]) extends StreamMsg
 
     def currentTerms = (ttaRef ? GetState("TweetStreamBuilder")).map(_.asInstanceOf[List[String]])
 
-    val heartBeat = Source.tick(1.second, 5.second, ByteString.empty)
+    val heartBeat = Source.tick(1.second, 5.second, ByteString("hb\n"))
 
     RestartSource.onFailuresWithBackoff(RestartSettings(2.seconds, 5.minutes, 0.0)) { () =>
       Source.futureSource {
@@ -69,37 +75,36 @@ class TwitterService(config: Config)(implicit actorSystem: ActorSystem) extends 
             val tweetSource = twitterConnector.buildTweetStreamAkka(streamTerms)
 
             Source.combine(heartBeat, tweetSource)(Merge(_, eagerComplete = true))
+              .via(Framing.delimiter(ByteString.fromString("\n"), 40000, allowTruncation = true))
               .zip(Source.repeat(GetState("RunningTweetStream")).ask[List[String]](ttaRef))
+              .mapConcat { case (bs, liveTerms) =>
+                bs.utf8String match {
+                  case s if s.forall(_.isWhitespace) => // its 0xd \r
+                    Metrics.twitterKeepAliveCrCounter.inc()
+                    None
+                  case "hb" =>
+                    Some(HeartBeatMsg(liveTerms))
+                  case s =>
+                    Try(Json.parse(s).as[JsObject]) match {
+                      case Failure(exception) =>
+                        logger.error("Error parsing tweet json", exception)
+                        logger.error(s)
+                        Metrics.unparsableFrameCounter.labels("unknown").inc() //TODO - try to put a reason in here
+                        None
+                      case Success(jsObject) =>
+                        Metrics.tweetParsedCounter.inc()
+                        Some(JsonMsg(jsObject, liveTerms))
+                    }
+                }
+              }
               .takeWhile {
-                case (_, liveTerms) if liveTerms != streamTerms =>
+                case msg if msg.liveTerms != streamTerms =>
                   logger.info("Twitter stream ending, these terms old: " + streamTerms.mkString(", "))
                   false
                 case _ => true
               }
-              .mapConcat {
-                case (bs, _) if !bs.isEmpty => Some(bs)
-                case _ => None
-              }
-              .viaMat(Framing.delimiter(ByteString.fromString("\n"), 40000, allowTruncation = true))(Keep.right)
-              .mapConcat { bs =>
-
-                val s = bs.utf8String
-                if(s.forall(_.isWhitespace)) { // its 0xd
-                  Metrics.twitterKeepAliveCrCounter.inc()
-                  None
-                }
-                else {
-                  Try(Json.parse(s).as[JsObject]) match {
-                    case Failure(exception) =>
-                      logger.error("Error parsing tweet json", exception)
-                      logger.error(s)
-                      Metrics.unparsableFrameCounter.labels("unknown").inc() //TODO - try to put a reason in here
-                      None
-                    case Success(value) =>
-                      Metrics.tweetParsedCounter.inc()
-                      Some((value, streamTerms))
-                  }
-                }
+              .collect {
+                case JsonMsg(jsObject, liveTerms) => (jsObject, liveTerms)
               }
         }
       }
